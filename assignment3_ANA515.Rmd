@@ -1,0 +1,78 @@
+---
+title: "Assignment 3 ANA 515 Getting/Cleaning Data"
+author: "Kevin M Rabidou"
+date: "2023-06-26"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(knitr)
+```
+
+```{r fileUpload, include = FALSE}
+# 1) Read file into R
+stormEventsData <- read_csv("~/Desktop/ANA 515/Week 6/StormEvents_details-ftp_v1.0_d1997_c20220425.csv")
+
+head(stormEventsData, 5)
+```
+
+```{r subsetFrame, include = FALSE}
+# 2) Subset the data limiting the varibles used
+variables <- c("BEGIN_YEARMONTH", "EPISODE_ID", "STATE", "STATE_FIPS", "CZ_NAME", "CZ_TYPE", "CZ_FIPS", "EVENT_TYPE")
+
+limitedStormEventsData <- stormEventsData[variables]
+
+head(limitedStormEventsData, 5)
+```
+
+```{r adjustColumns, include = FALSE}
+# 3) Arrange the limited set by the state column
+arrange(limitedStormEventsData, STATE)
+
+# 4) Change the state and county names to having only first letter upercase
+limitedStormEventsData$STATE <- str_to_title(limitedStormEventsData$STATE)
+limitedStormEventsData$CZ_NAME <- str_to_title(limitedStormEventsData$CZ_NAME)
+```
+
+```{r limitFIPS, include = FALSE}
+# 5) Limit CZ_TYPE to only the C object and remove all others, then remove the CZ_TYPE column
+
+countyStormEventsData <- filter(limitedStormEventsData, CZ_TYPE == "C")
+countyStormEventsData <- select(countyStormEventsData, -CZ_TYPE)
+
+```
+
+```{r padColumns, include = FALSE}
+# 6) As the FIPS variables are 3 wide we are setting width to 3 from the left and pad = 0 for states and county
+countyStormEventsData$STATE_FIPS <- str_pad(countyStormEventsData$STATE_FIPS, width = 3, side = "left", pad = "0")
+countyStormEventsData$CZ_FIPS <- str_pad(countyStormEventsData$CZ_FIPS, width = 3, side = "left", pad = "0")
+
+# Now unite the two into one FIPS column
+countyStormEventsData <- unite(countyStormEventsData, "STATE-CZ_FIPS", c("STATE_FIPS", "CZ_FIPS"), sep = "-")
+```
+
+
+```{r renameColumns, include = FALSE}
+# 7) Reanme all the column names to be lowercase
+countyStormEventsData <- rename_all(countyStormEventsData, tolower)
+
+```
+
+```{r stateFrame, include = FALSE}
+# 8) Create a dataframe with state, region, and area information 
+stateInfo <- data.frame(state=state.name, region=state.region, area=state.area)
+
+```
+
+```{r eventsPerState, include = FALSE}
+# 9) Create new dataframe containing events per state
+stateFreq <- data.frame(table(countyStormEventsData$state)) 
+colnames(stateFreq)[1] = "state"
+mergedStateEvents <- merge(x=stateFreq, y=stateInfo, by.x="state", by.y="state")
+```
+
+```{r visual, echo = FALSE}
+storm_plot <- ggplot(mergedStateEvents, aes(x = area, y = Freq)) + geom_point(aes(color=region)) + labs(x = "Land area (square miles)", y = "# of storm events 1997")
+storm_plot
+```
